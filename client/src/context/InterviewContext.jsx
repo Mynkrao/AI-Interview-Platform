@@ -1,10 +1,12 @@
 // context/InterviewContext.jsx
 // SAD Section 3.1 / 12.2: interview session state for the active session.
 // Stores: questions[], answers[], currentQuestionIndex, interviewConfig,
-// timeRemaining, isInterviewStarted.
+// timeRemaining, isInterviewStarted, sessionResult.
 //
-// Phase 2 scope only: no evaluation, no scores, no submission logic.
-// Timer is purely UI — counts down, never auto-submits, never calls backend.
+// Phase 3 addition: sessionResult holds the server response from
+// POST /api/interview/submit so FeedbackPage can read it without an
+// extra API call. It is populated by storeResult() after submission and
+// cleared by resetSession().
 
 import { createContext, useCallback, useEffect, useRef, useState } from 'react';
 
@@ -25,6 +27,8 @@ export function InterviewProvider({ children }) {
   const [interviewConfig, setInterviewConfig] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isInterviewStarted, setIsInterviewStarted] = useState(false);
+  // sessionResult: null until a successful submit, then the server response.
+  const [sessionResult, setSessionResult] = useState(null);
 
   // Keep a stable ref so the interval callback always sees the latest value
   // without being recreated on every tick.
@@ -67,6 +71,11 @@ export function InterviewProvider({ children }) {
     setCurrentQuestionIndex((prev) => (prev > 0 ? prev - 1 : prev));
   }, []);
 
+  // Store the result returned by POST /api/interview/submit.
+  const storeResult = useCallback((result) => {
+    setSessionResult(result);
+  }, []);
+
   // Reset everything — used when the user starts a new interview.
   const resetSession = useCallback(() => {
     if (timerRef.current) {
@@ -79,6 +88,7 @@ export function InterviewProvider({ children }) {
     setInterviewConfig(null);
     setTimeRemaining(0);
     setIsInterviewStarted(false);
+    setSessionResult(null);
   }, []);
 
   // Countdown timer — starts when isInterviewStarted becomes true, stops
@@ -114,12 +124,14 @@ export function InterviewProvider({ children }) {
     interviewConfig,
     timeRemaining,
     isInterviewStarted,
+    sessionResult,
     startSession,
     saveAnswer,
     goToQuestion,
     goNext,
     goPrevious,
     resetSession,
+    storeResult,
   };
 
   return (

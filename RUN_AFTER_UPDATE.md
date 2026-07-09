@@ -1,30 +1,32 @@
-# RUN_AFTER_UPDATE — Module 4 Phase 2
+# RUN_AFTER_UPDATE — Module 4 Phase 3
 
-No new packages were added. No backend changes were made.
-No migrations or environment variable changes are required.
+## What changed
+
+Backend routes and AI service were extended. No new packages were installed.
+The MongoDB schema is unchanged. No migrations required.
 
 ## Steps
 
 ```bash
-# 1. From the project root — ensure the server is running
+# 1. Restart the backend (picks up the new /submit route and AI functions)
 cd server
 npm run dev          # or: node server.js
 
-# 2. In a separate terminal — start the frontend dev server
+# 2. In a separate terminal — start (or hot-reload) the frontend
 cd client
 npm run dev
 
-# 3. Open the application
-# http://localhost:5173  (or whichever port Vite reports)
+# 3. Open the app
+# http://localhost:5173  (or the port Vite reports)
 ```
 
-## Verify the backend is reachable
+## Environment variables
 
-The Vite dev proxy forwards `/api` requests to Express.
-Check `client/vite.config.js` to confirm the proxy target matches your
-running server port (default: 5000).
+No new variables required. The existing `GEMINI_API_KEY` and `GEMINI_MODEL`
+(set to `gemini-2.5-flash`) are reused by the new AI functions.
 
-## That's it
+## Notes on submission time
 
-Phase 2 is purely additive frontend work.
-No `npm install`, no database migrations, no new environment variables.
+Each AI evaluation call is sequential to avoid Gemini rate-limit spikes.
+For a 10-question session, expect roughly 20-40 seconds for the full
+evaluation + summary. The Submit button shows a spinner during this wait.

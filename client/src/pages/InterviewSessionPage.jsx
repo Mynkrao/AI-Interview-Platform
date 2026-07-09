@@ -1,25 +1,19 @@
 // pages/InterviewSessionPage.jsx
 // Route: /interview/session (Protected).
-// Renders the live interview: question card, answer textarea, navigation
-// buttons, progress bar, and session timer.
-//
-// Answer persistence guarantee: every keystroke calls saveAnswer() which
-// writes to context immediately — navigating away and back pre-fills the
-// textarea from answers[currentQuestionIndex].
-//
-// Phase 2 scope only: no evaluation, no submit, no feedback.
-// If the user lands here without an active session (e.g. direct URL),
-// they are redirected to setup.
+// Phase 2: navigation, progress bar, timer, answer persistence.
+// Phase 3: Submit Interview button on the last question — calls
+// POST /api/interview/submit, stores result in context, navigates to /feedback.
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useInterview from '../hooks/useInterview';
-import QuestionCard  from '../components/interview/QuestionCard';
-import AnswerInput   from '../components/interview/AnswerInput';
+import { submitInterview } from '../api/interviewAPI';
+import QuestionCard   from '../components/interview/QuestionCard';
+import AnswerInput    from '../components/interview/AnswerInput';
 import PreviousButton from '../components/interview/PreviousButton';
-import NextButton    from '../components/interview/NextButton';
-import ProgressBar   from '../components/interview/ProgressBar';
-import SessionTimer  from '../components/interview/SessionTimer';
+import NextButton     from '../components/interview/NextButton';
+import ProgressBar    from '../components/interview/ProgressBar';
+import SessionTimer   from '../components/interview/SessionTimer';
 
 function InterviewSessionPage() {
   const {
@@ -29,9 +23,12 @@ function InterviewSessionPage() {
     interviewConfig,
     isInterviewStarted,
     saveAnswer,
+    storeResult,
   } = useInterview();
 
   const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError]   = useState('');
 
   // Guard: redirect to setup if no active session.
   useEffect(() => {
@@ -46,6 +43,32 @@ function InterviewSessionPage() {
   const currentQuestion = questions[currentQuestionIndex];
   const currentAnswer   = answers[currentQuestionIndex] ?? '';
   const isLastQuestion  = currentQuestionIndex === questions.length - 1;
+
+  async function handleSubmit() {
+    setSubmitError('');
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        type:       interviewConfig.type,
+        domain:     interviewConfig.domain,
+        difficulty: interviewConfig.difficulty,
+        mode:       interviewConfig.mode,
+        ...(interviewConfig.company ? { company: interviewConfig.company } : {}),
+        qaPairs: questions.map((question, i) => ({
+          question,
+          answer: answers[i] ?? '',
+        })),
+      };
+      const result = await submitInterview(payload);
+      storeResult({ ...result, interviewConfig });
+      navigate('/feedback');
+    } catch (err) {
+      const message =
+        err.response?.data?.message || 'Submission failed. Please try again.';
+      setSubmitError(message);
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50">
@@ -94,19 +117,54 @@ function InterviewSessionPage() {
         <div className="flex items-center justify-between pt-2">
           <PreviousButton />
 
-          {/* Right side: Next or end-of-session hint */}
           {isLastQuestion ? (
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-500">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-              Last question
-            </div>
+            <button
+              id="btn-submit-interview"
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              aria-label="Submit interview for evaluation"
+              className="
+                inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+                bg-emerald-600 text-sm font-semibold text-white
+                shadow-sm transition-all duration-150
+                hover:bg-emerald-700
+                disabled:opacity-60 disabled:cursor-not-allowed
+                focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1
+              "
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                  </svg>
+                  Evaluating…
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4" aria-hidden="true">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  Submit Interview
+                </>
+              )}
+            </button>
           ) : (
             <NextButton />
           )}
         </div>
+
+        {/* Submit error */}
+        {submitError && (
+          <div role="alert" className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-red-500 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <p className="text-sm text-red-700">{submitError}</p>
+          </div>
+        )}
 
         {/* Answered count indicator */}
         <p className="text-xs text-center text-gray-400 pb-4">
