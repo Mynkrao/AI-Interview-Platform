@@ -9,7 +9,7 @@
 // Field rules trace to SRS FR-03-01 through FR-03-03 (shared config) and
 // FR-03-08 (qaPairs submission shape).
 
-const { body } = require('express-validator');
+const { body, query, param } = require('express-validator');
 
 const generateRules = [
   body('type')
@@ -98,5 +98,48 @@ const submitRules = [
     .withMessage('Answer must not exceed 5000 characters'),
 ];
 
-module.exports = { generateRules, submitRules };
+// historyQueryRules — GET /api/interview/history (Module 5)
+// All params are optional; only validate format when present.
 
+const historyQueryRules = [
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('page must be a positive integer')
+    .toInt(),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .withMessage('limit must be between 1 and 50')
+    .toInt(),
+  query('sort')
+    .optional()
+    .isIn(['latest', 'oldest', 'highest-score', 'lowest-score'])
+    .withMessage('sort must be one of: latest, oldest, highest-score, lowest-score'),
+  query('type')
+    .optional()
+    .isIn(['Technical', 'HR', 'Behavioral', 'Mixed'])
+    .withMessage('type must be one of: Technical, HR, Behavioral, Mixed'),
+  query('difficulty')
+    .optional()
+    .isIn(['Beginner', 'Intermediate', 'Advanced'])
+    .withMessage('difficulty must be one of: Beginner, Intermediate, Advanced'),
+  query('mode')
+    .optional()
+    .isIn(['Practice', 'Timed'])
+    .withMessage('mode must be one of: Practice, Timed'),
+  query('search')
+    .optional()
+    .isString()
+    .isLength({ max: 100 })
+    .withMessage('search must not exceed 100 characters'),
+];
+
+// idParamRules — GET /api/interview/:id and DELETE /api/interview/:id (Module 5)
+const idParamRules = [
+  param('id')
+    .isMongoId()
+    .withMessage('Interview ID must be a valid MongoDB ObjectId'),
+];
+
+module.exports = { generateRules, submitRules, historyQueryRules, idParamRules };
